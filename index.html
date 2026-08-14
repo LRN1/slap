@@ -49,12 +49,16 @@
     padding-bottom:calc(env(safe-area-inset-bottom) + 24px);
     -webkit-overflow-scrolling:touch;
   }
-  #board{position:relative;width:max-content;min-width:100%;padding:6px 12px 40px;transform-origin:0 0;}
-  .colheads{display:flex;position:sticky;top:calc(env(safe-area-inset-top) + 47px);z-index:10;
-    background:linear-gradient(to bottom,var(--bg) 70%,transparent);padding-bottom:6px;}
+  #board{position:relative;width:max-content;min-width:100%;padding:50px 12px 40px;transform-origin:0 0;}
+  #heads{position:fixed;top:calc(env(safe-area-inset-top) + 47px);left:0;right:0;z-index:30;
+    overflow:hidden;pointer-events:none;
+    background:linear-gradient(to bottom,var(--bg) 62%,transparent);}
+  #headsIn{width:max-content;padding:0 12px;transform-origin:0 0;pointer-events:auto;}
+  .colheads{display:flex;padding-bottom:6px;}
   .colhead{width:var(--colw);flex:0 0 var(--colw);margin:0 5px;padding:8px 8px 6px;
     display:flex;align-items:center;justify-content:center;gap:8px;}
-  .colhead .cname{display:inline-block;color:var(--ink-dim);
+  .colhead .cname{display:inline-block;color:var(--ink-dim);background:var(--bg);
+    box-shadow:0 1px 2px rgba(51,48,43,.18);
     font-family:-apple-system,system-ui;font-weight:600;font-size:11px;
     letter-spacing:.18em;text-transform:uppercase;padding:6px 2px 7px;}
   .colhead .count{font-weight:600;letter-spacing:0;color:#6E6A62;font-size:11px;}
@@ -63,7 +67,8 @@
   /* magnet strips: opaque vinyl with a gloss line, dead straight, full height */
   .tapeV{position:absolute;top:0;bottom:0;width:1px;background:var(--hair);z-index:0;}
   .tapeH{position:absolute;left:28px;right:28px;height:1px;background:var(--hairL);z-index:0;}
-  .lane-label{position:sticky;left:12px;display:inline-flex;align-items:center;gap:8px;
+  .lane-label{position:relative;display:inline-flex;align-items:center;gap:8px;
+    background:var(--bg);box-shadow:0 1px 2px rgba(51,48,43,.18);
     color:var(--ink-dim);
     font-family:-apple-system,system-ui;font-weight:600;font-size:11px;
     letter-spacing:.18em;text-transform:uppercase;
@@ -224,7 +229,7 @@
   .hadd,.laneadd{appearance:none;border:1.5px dashed var(--hairL);background:transparent;color:var(--ink-dim);
     border-radius:9px;padding:9px 12px;font:600 12px/1 -apple-system,system-ui;}
   .laneadd{display:block;margin:16px 12px 4px;}
-  .lane-label.edit{display:flex;gap:6px;align-items:center;max-width:240px;position:static;transform:none;}
+  .lane-label.edit{display:flex;gap:6px;align-items:center;max-width:240px;}
   .lane-label.edit::after{content:none;}
   .brow{display:flex;gap:8px;align-items:center;margin:8px 0;}
   .bname{flex:1;min-width:0;text-align:left;appearance:none;border:1px solid #3A3730;background:#1B1A18;
@@ -468,6 +473,7 @@
   <button class="menu-btn" id="menuBtn" aria-label="Menu">⋯</button>
 </header>
 
+<div id="heads"><div id="headsIn"></div></div>
 <div id="viewport"><div id="board"></div></div>
 <div id="ghost"></div>
 <div id="dim"></div>
@@ -721,6 +727,8 @@ function renderNow(){
   applyZoom();
 
   board.innerHTML="";
+  const headsHost=document.getElementById("headsIn");
+  headsHost.innerHTML="";
   const heads=document.createElement("div"); heads.className="colheads";
   for(const col of state.columns){
     const h=document.createElement("div"); h.className="colhead";
@@ -743,7 +751,8 @@ function renderNow(){
     b.addEventListener("click",addColumn);
     ha.appendChild(b); heads.appendChild(ha);
   }
-  board.appendChild(heads);
+  headsHost.appendChild(heads);
+  syncHeads();
 
   for(const lane of state.lanes){
     const laneEl=document.createElement("div"); laneEl.className="lane";
@@ -1072,7 +1081,7 @@ let justLandedId=null, landAmp=0.18;
 function slapLand(card, intoDone, speed){
   landAmp = intoDone ? Math.min(1.6, 0.3 + Math.pow(speed||0,1.35)*1.05) : 0.18;
   const isMax = landAmp>=1.5;
-  if(isMax) card.skew=(hashOf(card.id)%2?1:-1)*(6+((hashOf(card.id)>>4)%4));
+  if(isMax) card.skew=(hashOf(card.id)%2?1:-1)*(6+((hashOf(card.id)>>>4)%4));
   justLandedId=card.id;
   render();
   const el=board.querySelector('.card-el[data-id="'+card.id+'"]');
@@ -1393,7 +1402,16 @@ function inlineEditor(cell, card, target, replaceEl){
 }
 
 /* ============ pinch zoom ============ */
-function applyZoom(){ board.style.transform="scale("+(state.zoom||1)+")"; }
+function applyZoom(){ board.style.transform="scale("+(state.zoom||1)+")"; syncHeads(); }
+function syncHeads(){
+  const hi=document.getElementById("headsIn");
+  if(hi) hi.style.transform="translate("+(-viewport.scrollLeft)+"px,0) scale("+(state.zoom||1)+")";
+}
+let headsRaf=null;
+viewport.addEventListener("scroll",()=>{
+  if(headsRaf) return;
+  headsRaf=requestAnimationFrame(()=>{ headsRaf=null; syncHeads(); });
+},{passive:true});
 let pinch=null;
 viewport.addEventListener("touchstart",(e)=>{
   if(e.touches.length===2) pinch={d0:dist(e.touches), z0:state.zoom, zPrev:state.zoom};
