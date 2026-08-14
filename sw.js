@@ -2,7 +2,7 @@
    BUMP CACHE VERSION on every deploy (any change to index.html):
    the changed sw.js byte-diff triggers the browser to install the new
    version; old caches are cleared on activate. */
-const CACHE = "slap-v3";
+const CACHE = "slap-v7";
 const ASSETS = [
   "./",
   "./index.html",

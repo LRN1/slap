@@ -90,7 +90,6 @@
   .ghost-note{min-height:46px;position:relative;border-radius:9px;}
   .ghost-note::after{content:"+";position:absolute;inset:0;display:grid;place-items:center;
     color:#4A463F;font:300 26px/1 -apple-system,system-ui;}
-  .card-el ~ .ghost-note::after{content:none;} /* + only when the cell is empty */
   .ghost-note:active{background:radial-gradient(130px 60px at center, rgba(255,255,255,.08), transparent 72%);}
 
   /* ---------- shared card ---------- */
@@ -148,11 +147,17 @@
   .card-el.editing.focus{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 84px);
     width:min(340px,88vw);z-index:75;opacity:0;
     transform:translateX(-50%) scale(.92);
-    transition:transform .22s cubic-bezier(.32,.72,.33,1),opacity .18s;}
+    transition:transform .22s cubic-bezier(.32,.72,.33,1),opacity .18s,top .16s ease-out;}
   .card-el.editing.focus.show{opacity:1;transform:translateX(-50%) scale(1.08);}
   .card-el.editing.focus textarea{font-size:19px;line-height:1.32;}
   .card-el.editing.focus .edit-tools .tool{padding:8px 12px;font-size:13px;}
   #dim.soft{background:rgba(12,11,9,.45);}
+  .card-el .why{margin-top:7px;font-family:"Marker Felt","Segoe Print","Comic Sans MS",cursive;
+    font-size:12.5px;line-height:1.25;color:rgba(43,39,33,.62);
+    border-top:1px dashed rgba(43,39,33,.22);padding-top:6px;}
+  .whyin{width:100%;appearance:none;border:0;border-bottom:1.5px dashed rgba(43,39,33,.3);
+    background:transparent;outline:none;color:var(--note-ink);
+    font-family:"Marker Felt","Segoe Print","Comic Sans MS",cursive;font-size:13.5px;padding:4px 0 5px;}
   /* rich text on stickies */
   .card-el .t b{font-weight:700;}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
@@ -311,22 +316,20 @@
   .swin{max-height:320px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
     touch-action:pan-y;scrollbar-width:none;
     display:flex;flex-direction:column;gap:10px;padding:4px 7px 10px;
-    -webkit-mask-image:linear-gradient(to bottom, black 90%, rgba(0,0,0,.8));
-    mask-image:linear-gradient(to bottom, black 90%, rgba(0,0,0,.8));}
+    -webkit-mask-image:linear-gradient(to bottom, black 82%, rgba(0,0,0,.35) 94%, transparent);
+    mask-image:linear-gradient(to bottom, black 82%, rgba(0,0,0,.35) 94%, transparent);}
   .swin::-webkit-scrollbar{display:none;width:0;}
-  .pile{position:relative;height:56px;transition:height .18s ease, opacity .18s ease, margin .18s ease;overflow:hidden;}
+  .pile{position:relative;height:38px;transition:height .18s ease, opacity .18s ease, margin .18s ease;}
   .pile.pgone{height:0 !important;opacity:0;margin:0;pointer-events:none;}
-  .psheet{position:absolute;inset:0;background:#F2E79A;border-radius:1px;box-shadow:0 2px 3px rgba(0,0,0,.35);}
-  .psheet:nth-child(1){transform:rotate(-2.4deg) translate(-3px,4px);background:#EFE3A0;}
-  .psheet:nth-child(2){transform:rotate(1.6deg) translate(3px,2px);}
-  .ptop{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;
-    background:linear-gradient(180deg,#FBF19C,#F0E488);border-radius:1px;
-    box-shadow:0 3px 5px rgba(0,0,0,.45);padding:9px 11px;transform:rotate(-.6deg);
-    color:var(--note-ink);font-family:"Marker Felt",cursive;}
-  .ptop .peek{font-size:13px;line-height:1.2;overflow:hidden;display:-webkit-box;
-    -webkit-line-clamp:1;-webkit-box-orient:vertical;}
-  .ptop .pcnt{align-self:flex-end;font:700 12px -apple-system;color:#6B5A20;
-    background:rgba(0,0,0,.07);padding:3px 8px;border-radius:9px;}
+  .pedges{position:absolute;inset:0;}
+  .pedge{position:absolute;left:6px;right:6px;height:15px;border-radius:1px;
+    box-shadow:0 -2px 4px rgba(0,0,0,.28);}
+  .pedge:nth-child(1){bottom:0;transform:rotate(-.8deg);}
+  .pedge:nth-child(2){bottom:8px;left:12px;right:2px;transform:rotate(.9deg);}
+  .pedge:nth-child(3){bottom:16px;left:3px;right:10px;transform:rotate(-.5deg);}
+  .pile .pcnt{position:absolute;right:2px;bottom:4px;font:700 12px -apple-system;color:var(--note-ink);
+    background:rgba(250,248,244,.85);box-shadow:0 1px 2px rgba(0,0,0,.25);
+    padding:3px 8px;border-radius:9px;z-index:2;}
   #pileFan{position:fixed;inset:0;z-index:80;background:rgba(12,11,9,.6);display:none;overflow:auto;
     padding:calc(env(safe-area-inset-top) + 60px) 14px 40px;}
   #pileFan.on{display:block;}
@@ -454,8 +457,7 @@
   body:not(.darkmode) #sheet{background:#EDE8DB;border-top-color:#C6BFAE;}
   body:not(.darkmode) #sheet textarea, body:not(.darkmode) .brow .bname{background:#E2DDCE;color:#2B2721;border-color:#C6BFAE;}
   body:not(.darkmode) .brow .bact{background:#D8D2C3;color:#6E675B;}
-  body:not(.darkmode) .swin{-webkit-mask-image:linear-gradient(to bottom, black 90%, rgba(0,0,0,.75));
-    mask-image:linear-gradient(to bottom, black 90%, rgba(0,0,0,.75));}
+
   /* appearance segment in settings */
   .apprSeg{display:flex;gap:6px;}
   .apprSeg button{appearance:none;border:1px solid #3A3730;background:transparent;color:#8A857C;
@@ -580,7 +582,6 @@ function migrate(raw){
   if(raw && raw.archOn===undefined) raw.archOn=true;
   if(raw && !raw.appearance) raw.appearance="light";
   if(raw && raw.randColor===undefined) raw.randColor=false;
-  if(raw && raw._apprV!==2){ raw.appearance="light"; raw._apprV=2; } /* Converged-2: light is the board */
   if(raw && !raw.archive) raw.archive={weeks:[],cur:{n:isoWeek(new Date()),items:[]},base:0};
   if(!raw) return defaultDB();
   if(Array.isArray(raw.boards)){
@@ -791,17 +792,23 @@ function renderNow(){
         for(const card of cards) win.appendChild(cardEl(card));
         cell.appendChild(win);
         const p=document.createElement("div"); p.className="pile";
-        p.innerHTML='<div class="psheet"></div><div class="psheet"></div><div class="ptop"><div class="peek"></div><div class="pcnt"></div></div>';
+        p.innerHTML='<div class="pedges"></div><div class="pcnt"></div>';
         cell.appendChild(p);
         const upd=()=>{
-          const kids=[...win.children];
+          const kids=[...win.children].filter(k=>k.classList.contains("card-el"));
           const wb=win.getBoundingClientRect().bottom-16;
           const below=kids.filter(k=>k.getBoundingClientRect().top>=wb);
           p.querySelector(".pcnt").textContent="+"+below.length;
-          p.querySelector(".peek").textContent=below.length?below[0].textContent:"";
           p.classList.toggle("pgone", below.length===0);
-          if(below.length) p.style.height=(46+Math.min(below.length,24)*1.6)+"px";
+          if(below.length) p.style.height=(24+Math.min(below.length,3)*8+Math.min(below.length,20))+"px";
           p._below=below.map(k=>state.cards.find(c=>c.id===k.dataset.id)).filter(Boolean);
+          /* buried edges: slivers in the actual colors of the hidden cards */
+          const pe=p.querySelector(".pedges"); pe.innerHTML="";
+          p._below.slice(0,3).forEach(cd=>{
+            const e=document.createElement("div"); e.className="pedge";
+            e.style.background=colorOf(cd.color).c;
+            pe.appendChild(e);
+          });
         };
         win.addEventListener("scroll",upd);
         p.addEventListener("click",()=>{
@@ -813,7 +820,8 @@ function renderNow(){
         for(const card of cards) cell.appendChild(cardEl(card));
       }
       const blank=document.createElement("div"); blank.className="ghost-note";
-      cell.appendChild(blank);
+      const winHost=cell.querySelector(".swin");
+      if(winHost) winHost.appendChild(blank); else cell.appendChild(blank);
       cell.addEventListener("click",(e)=>{
         /* empty patch of the cell, or the ghost sticky itself */
         if(e.target===cell || e.target===blank || blank.contains(e.target)){
@@ -888,7 +896,8 @@ function cardEl(card){
   const j=jitFor(card.id);
   el.style.setProperty("--jx",j.x); el.style.setProperty("--jy",j.y);
   const rt=richText(card.text);
-  el.innerHTML=`<div class="t">${rt.html||"&nbsp;"}</div>`;
+  el.innerHTML=`<div class="t">${rt.html||"&nbsp;"}</div>`+
+    (card.blocked&&card.why?`<div class="why">${esc(card.why)}</div>`:"");
   if(rt.links.length){
     const ch=document.createElement("div"); ch.className="chips";
     for(const u of rt.links){
@@ -916,7 +925,7 @@ function fling(vx,vy){ /* px per ms */
   let lt=performance.now();
   function step(t){
     const dt=Math.min(48, t-lt); lt=t;
-    viewport.scrollLeft-=vx*dt; viewport.scrollTop-=vy*dt;
+    viewport.scrollLeft-=vx*dt; viewport.scrollTop-=vy*dt; syncHeads();
     const f=Math.pow(0.945, dt/16.7);
     vx*=f; vy*=f;
     if(Math.abs(vx)>0.02 || Math.abs(vy)>0.02) flingId=requestAnimationFrame(step);
@@ -948,7 +957,7 @@ function attachPress(el,card){
         }
       }
       if(mode==="scroll"){
-        if(axis==="x") viewport.scrollLeft-=dx; else viewport.scrollTop-=dy;
+        if(axis==="x"){ viewport.scrollLeft-=dx; syncHeads(); } else viewport.scrollTop-=dy;
         const now=performance.now();
         samples.push({t:now,x:ev.clientX,y:ev.clientY});
         while(samples.length && now-samples[0].t>120) samples.shift();
@@ -1048,6 +1057,7 @@ function moveGhost(x,y){
   else if(x<m) viewport.scrollLeft-=12;
   if(y>innerHeight-m) viewport.scrollTop+=12;
   else if(y<m+56) viewport.scrollTop-=12;
+  syncHeads();
 }
 function cellAt(x,y){
   /* geometric, forgiving: dead zones (gaps, lane labels) snap to the nearest cell */
@@ -1176,7 +1186,12 @@ function drop(x,y,vx=0,vy=0){
   }
   cleanupDrag();
   render();
-  if(wasStill && theCard){ theCard.blocked=!theCard.blocked; save(); render(); }
+  if(wasStill && theCard){
+    theCard.blocked=!theCard.blocked;
+    if(!theCard.blocked) theCard.why="";
+    save(); render();
+    if(theCard.blocked) toast("Blocked \u2014 tap the sticky to add a reason");
+  }
 }
 function cleanupDrag(){
   ghost.style.display="none";
@@ -1273,7 +1288,7 @@ function openPileFan(title,cards,laneId,colId){
   pileFan.innerHTML=`<div class="fanttl">${esc(title)} — ${cards.length} in the pile · tap a sticky to pull it to the top</div>`;
   const g=document.createElement("div"); g.className="fgrid";
   for(const card of cards){
-    const el=cardEl(card);
+    const el=cardEl(card).cloneNode(true); /* clone strips gesture listeners: in the fan, tap = pull, never edit */
     el.style.pointerEvents="auto";
     el.addEventListener("click",(ev)=>{
       ev.stopPropagation();
@@ -1282,6 +1297,9 @@ function openPileFan(title,cards,laneId,colId){
         .sort((a,b)=>a.ord-b.ord);
       card.ord=0; peers.forEach((k,i)=>k.ord=i+1);
       save(); pileFan.classList.remove("on"); render();
+      const pulled=board.querySelector('.card-el[data-id="'+card.id+'"]');
+      if(pulled){ pulled.classList.add("microslap"); setTimeout(()=>pulled.classList.remove("microslap"),240); }
+      const winEl=pulled && pulled.closest(".swin"); if(winEl) winEl.scrollTop=0;
     },{capture:true});
     g.appendChild(el);
   }
@@ -1303,6 +1321,7 @@ function deleteCard(card){
 /* ============ inline post-it editor (postit skin) ============ */
 function inlineEditor(cell, card, target, replaceEl){
   const isNew=!card;
+  let blurT=null;
   const cur = card || {text:"",
     color: db.randColor ? COLORS[Math.floor(Math.random()*COLORS.length)].id : "yellow",
     blocked:false};
@@ -1346,8 +1365,14 @@ function inlineEditor(cell, card, target, replaceEl){
   const blk=document.createElement("button");
   blk.className="tool"+(blocked?" on":"");
   blk.textContent="Blocked";
+  const whyin=document.createElement("input");
+  whyin.className="whyin"; whyin.placeholder="Blocked why? (optional)";
+  whyin.value=(card&&card.why)||"";
+  whyin.style.display=blocked?"":"none";
+  whyin.addEventListener("pointerdown",(ev)=>{ ev.stopPropagation(); clearTimeout(blurT); },{passive:true});
   blk.addEventListener("pointerdown",(ev)=>{ev.preventDefault();},{passive:false});
-  blk.addEventListener("click",()=>{ blocked=!blocked; blk.classList.toggle("on",blocked); });
+  blk.addEventListener("click",()=>{ blocked=!blocked; blk.classList.toggle("on",blocked);
+    whyin.style.display=blocked?"":"none"; if(blocked) whyin.focus(); });
   tools.appendChild(blk);
 
   if(!isNew){
@@ -1363,10 +1388,12 @@ function inlineEditor(cell, card, target, replaceEl){
   doneBtn.addEventListener("pointerdown",(ev)=>{ev.preventDefault();},{passive:false});
   doneBtn.addEventListener("click",commit);
   tools.appendChild(doneBtn);
+  el.appendChild(whyin);
   el.appendChild(tools);
 
   function teardown(rerender=true){
     if(finished) return; finished=true;
+    if(el._unplace) el._unplace();
     el.remove(); anchor.remove();
     dim.classList.remove("on","soft");
     if(rerender) render();
@@ -1375,8 +1402,9 @@ function inlineEditor(cell, card, target, replaceEl){
     if(finished) return;
     const text=ta.value.trim();
     if(!text){ teardown(); return; }
+    const why = blocked ? whyin.value.trim() : "";
     if(isNew){
-      const nc={id:uid(),text,color,blocked,lane:target.lane,col:target.col,
+      const nc={id:uid(),text,color,blocked,why,lane:target.lane,col:target.col,
         ord:Math.max(0,...state.cards.filter(k=>k.lane===target.lane&&k.col===target.col).map(k=>k.ord+1),0)};
       state.cards.push(nc);
       setTimeout(()=>{
@@ -1384,11 +1412,10 @@ function inlineEditor(cell, card, target, replaceEl){
         if(el){ el.classList.add("microslap"); setTimeout(()=>el.classList.remove("microslap"),220); }
       },0);
     }else{
-      Object.assign(card,{text,color,blocked});
+      Object.assign(card,{text,color,blocked,why});
     }
     save(); teardown();
   }
-  let blurT=null;
   ta.addEventListener("blur",()=>{ blurT=setTimeout(()=>{ if(!finished) commit(); },140); });
   ta.addEventListener("focus",()=>{ clearTimeout(blurT); });
   tools.addEventListener("pointerdown",(ev)=>{ ev.preventDefault(); clearTimeout(blurT); },{passive:false});
@@ -1396,6 +1423,24 @@ function inlineEditor(cell, card, target, replaceEl){
 
   document.body.appendChild(el);
   dim.classList.add("on","soft");
+  /* bottom-anchor above the keyboard: Done stays in thumb range; text grows upward */
+  const placeFocus=()=>{
+    const vv=window.visualViewport;
+    const vTop=vv?vv.offsetTop:0, vH=vv?vv.height:window.innerHeight;
+    const h=el.offsetHeight||220;
+    const top=Math.max(vTop+54, vTop+vH-h-14);
+    el.style.top=top+"px";
+  };
+  placeFocus();
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize",placeFocus);
+    window.visualViewport.addEventListener("scroll",placeFocus);
+  }
+  el._unplace=()=>{ if(window.visualViewport){
+    window.visualViewport.removeEventListener("resize",placeFocus);
+    window.visualViewport.removeEventListener("scroll",placeFocus); } };
+  ta.addEventListener("input",()=>requestAnimationFrame(placeFocus));
+  whyin.addEventListener("input",()=>requestAnimationFrame(placeFocus));
   requestAnimationFrame(()=>el.classList.add("show"));
   ta.focus();                                        /* sync focus = keyboard opens on the tap itself */
   ta.setSelectionRange(ta.value.length,ta.value.length);
@@ -1565,7 +1610,7 @@ document.getElementById("mArch").addEventListener("click",()=>{
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
 }
-load().then(render).catch(()=>{ db=defaultDB(); state=db.boards[0]; render(); });
+load().then(()=>{ applyAppearance(); render(); }).catch(()=>{ db=defaultDB(); state=db.boards[0]; applyAppearance(); render(); });
 </script>
 </body>
 </html>
