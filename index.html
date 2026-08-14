@@ -49,7 +49,7 @@
     padding-bottom:calc(env(safe-area-inset-bottom) + 24px);
     -webkit-overflow-scrolling:touch;
   }
-  #board{position:relative;width:max-content;min-width:100%;padding:6px 12px 40px;}
+  #board{position:relative;width:max-content;min-width:100%;padding:6px 12px 40px;transform-origin:0 0;}
   .colheads{display:flex;position:sticky;top:calc(env(safe-area-inset-top) + 47px);z-index:10;
     background:linear-gradient(to bottom,var(--bg) 70%,transparent);padding-bottom:6px;}
   .colhead{width:var(--colw);flex:0 0 var(--colw);margin:0 5px;padding:8px 8px 6px;
@@ -693,9 +693,10 @@ function layTape(){
   const firstRow=board.querySelector(".lane-row");
   if(!firstRow) return;
   const cells=[...firstRow.querySelectorAll(":scope > .cell")];
+  const z=state.zoom||1;
   const xs=[];
   cells.forEach((c,i)=>{ const r=c.getBoundingClientRect();
-    xs.push(r.left-br.left-3); if(i===cells.length-1) xs.push(r.right-br.left-3); });
+    xs.push((r.left-br.left)/z-3); if(i===cells.length-1) xs.push((r.right-br.left)/z-3); });
   for(const x of xs){
     const v=document.createElement("div"); v.className="tapeV"; v.style.left=x+"px";
     board.appendChild(v);
@@ -704,7 +705,7 @@ function layTape(){
   lanes.slice(1).forEach(l=>{
     const r=l.getBoundingClientRect();
     const h=document.createElement("div"); h.className="tapeH";
-    h.style.top=(r.top-br.top-3)+"px";
+    h.style.top=((r.top-br.top)/z-3)+"px";
     board.appendChild(h);
   });
 }
@@ -717,7 +718,7 @@ function renderNow(){
   const sl=document.getElementById("mStyleLbl");
   if(sl) sl.textContent="Style: "+({s2:"Studio",s5:"Daylight",s7:"Real",s6:"Chalk"}[db.theme]||"Studio");
   if(brand) brand.textContent = editMode ? "Editing layout" : (state.name||"Board");
-  board.style.zoom = state.zoom;
+  applyZoom();
 
   board.innerHTML="";
   const heads=document.createElement("div"); heads.className="colheads";
@@ -1392,18 +1393,27 @@ function inlineEditor(cell, card, target, replaceEl){
 }
 
 /* ============ pinch zoom ============ */
+function applyZoom(){ board.style.transform="scale("+(state.zoom||1)+")"; }
 let pinch=null;
 viewport.addEventListener("touchstart",(e)=>{
-  if(e.touches.length===2) pinch={d0:dist(e.touches), z0:state.zoom};
+  if(e.touches.length===2) pinch={d0:dist(e.touches), z0:state.zoom, zPrev:state.zoom};
 },{passive:true});
 viewport.addEventListener("touchmove",(e)=>{
   if(pinch && e.touches.length===2){
     e.preventDefault();
     const z=Math.min(1.15, Math.max(0.4, pinch.z0 * dist(e.touches)/pinch.d0));
-    state.zoom=z; board.style.zoom=z;
+    /* focal anchor: the world point under the pinch center stays put */
+    const r=viewport.getBoundingClientRect();
+    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2 - r.left;
+    const cy=(e.touches[0].clientY+e.touches[1].clientY)/2 - r.top;
+    const f=z/pinch.zPrev;
+    viewport.scrollLeft=(viewport.scrollLeft+cx)*f - cx;
+    viewport.scrollTop =(viewport.scrollTop +cy)*f - cy;
+    state.zoom=z; pinch.zPrev=z;
+    applyZoom();
   }
 },{passive:false});
-viewport.addEventListener("touchend",()=>{ if(pinch){ pinch=null; save(); } });
+viewport.addEventListener("touchend",()=>{ if(pinch){ pinch=null; save(); requestAnimationFrame(layTape); } });
 function dist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
 
 /* ============ toasts ============ */
