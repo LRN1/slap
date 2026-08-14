@@ -49,11 +49,10 @@
     padding-bottom:calc(env(safe-area-inset-bottom) + 24px);
     -webkit-overflow-scrolling:touch;
   }
-  #board{position:relative;width:max-content;min-width:100%;padding:50px 12px 40px;transform-origin:0 0;}
-  #heads{position:fixed;top:calc(env(safe-area-inset-top) + 47px);left:0;right:0;z-index:30;
-    overflow:hidden;pointer-events:none;
+  #board{position:relative;width:max-content;min-width:100%;padding:6px 12px 40px;transform-origin:0 0;will-change:transform;}
+  #heads{position:sticky;top:0;z-index:30;pointer-events:none;width:max-content;min-width:100%;
     background:linear-gradient(to bottom,var(--bg) 62%,transparent);}
-  #headsIn{width:max-content;padding:0 12px;transform-origin:0 0;pointer-events:auto;}
+  #headsIn{width:max-content;padding:0 12px;transform-origin:0 0;pointer-events:auto;will-change:transform;}
   .colheads{display:flex;padding-bottom:6px;}
   .colhead{width:var(--colw);flex:0 0 var(--colw);margin:0 5px;padding:8px 8px 6px;
     display:flex;align-items:center;justify-content:center;gap:8px;}
@@ -94,7 +93,7 @@
 
   /* ---------- shared card ---------- */
   .card-el{position:relative;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
-    touch-action:none;}
+    touch-action:pan-x pan-y;}
   .card-el .t{white-space:pre-wrap;word-break:break-word;
     display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;}
   /* ---------- CARD skin ---------- */
@@ -142,6 +141,7 @@
   .edit-tools .spacer{flex:1;}
   .edit-tools .done{background:#1A1917;color:#F2EFE9;font-size:13px;padding:7px 12px;}
   .edit-tools{flex-wrap:wrap;row-gap:10px;}
+  .edit-actions{display:flex;justify-content:flex-end;margin-top:10px;}
   .origin-slot{min-height:64px;border:2px dashed rgba(236,233,227,.3);border-radius:3px;
     background:rgba(255,255,255,.03);}
   .card-el.editing.focus{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 84px);
@@ -322,11 +322,11 @@
   .pile{position:relative;height:38px;transition:height .18s ease, opacity .18s ease, margin .18s ease;}
   .pile.pgone{height:0 !important;opacity:0;margin:0;pointer-events:none;}
   .pedges{position:absolute;inset:0;}
-  .pedge{position:absolute;left:6px;right:6px;height:15px;border-radius:1px;
+  .pedge{position:absolute;height:17px;border-radius:1px;
     box-shadow:0 -2px 4px rgba(0,0,0,.28);}
-  .pedge:nth-child(1){bottom:0;transform:rotate(-.8deg);}
-  .pedge:nth-child(2){bottom:8px;left:12px;right:2px;transform:rotate(.9deg);}
-  .pedge:nth-child(3){bottom:16px;left:3px;right:10px;transform:rotate(-.5deg);}
+  .pedge:nth-child(1){left:8%;right:33%;bottom:0;transform:rotate(-2deg);}
+  .pedge:nth-child(2){left:27%;right:11%;bottom:9px;transform:rotate(1.7deg);}
+  .pedge:nth-child(3){left:15%;right:24%;bottom:18px;transform:rotate(-1.2deg);}
   .pile .pcnt{position:absolute;right:2px;bottom:4px;font:700 12px -apple-system;color:var(--note-ink);
     background:rgba(250,248,244,.85);box-shadow:0 1px 2px rgba(0,0,0,.25);
     padding:3px 8px;border-radius:9px;z-index:2;}
@@ -475,8 +475,7 @@
   <button class="menu-btn" id="menuBtn" aria-label="Menu">⋯</button>
 </header>
 
-<div id="heads"><div id="headsIn"></div></div>
-<div id="viewport"><div id="board"></div></div>
+<div id="viewport"><div id="heads"><div id="headsIn"></div></div><div id="board"></div></div>
 <div id="ghost"></div>
 <div id="dim"></div>
 <div id="pileFan"></div>
@@ -671,7 +670,15 @@ function render(){
   /* FLIP: capture old card positions, re-render, animate the difference */
   const prev={};
   board.querySelectorAll(".card-el[data-id]").forEach(el=>{ prev[el.dataset.id]=el.getBoundingClientRect(); });
+  const sx=viewport.scrollLeft, sy=viewport.scrollTop;
+  const swins={};
+  board.querySelectorAll(".cell").forEach(c=>{ const w=c.querySelector(".swin");
+    if(w) swins[c.dataset.lane+"|"+c.dataset.col]=w.scrollTop; });
   renderNow();
+  viewport.scrollLeft=sx; viewport.scrollTop=sy;
+  board.querySelectorAll(".cell").forEach(c=>{ const w=c.querySelector(".swin");
+    const k=c.dataset.lane+"|"+c.dataset.col;
+    if(w && (k in swins)) w.scrollTop=swins[k]; });
   const postit=document.body.classList.contains("skin-postit");
   board.querySelectorAll(".card-el[data-id]").forEach(el=>{
     if(el.dataset.id===justLandedId) return; /* slap owns the arrival */
@@ -917,52 +924,29 @@ function cardEl(card){
 const ghost=document.getElementById("ghost");
 let drag=null;
 
-/* ---- inertia for manual scroll ---- */
-let flingId=null;
-function cancelFling(){ if(flingId){ cancelAnimationFrame(flingId); flingId=null; } }
-function fling(vx,vy){ /* px per ms */
-  cancelFling();
-  let lt=performance.now();
-  function step(t){
-    const dt=Math.min(48, t-lt); lt=t;
-    viewport.scrollLeft-=vx*dt; viewport.scrollTop-=vy*dt; syncHeads();
-    const f=Math.pow(0.945, dt/16.7);
-    vx*=f; vy*=f;
-    if(Math.abs(vx)>0.02 || Math.abs(vy)>0.02) flingId=requestAnimationFrame(step);
-    else flingId=null;
-  }
-  flingId=requestAnimationFrame(step);
-}
-viewport.addEventListener("pointerdown", cancelFling, {capture:true});
-
 function attachPress(el,card){
   el.addEventListener("pointerdown",(e)=>{
     if(drag || el.classList.contains("editing")) return;
-    e.preventDefault();
-    cancelFling();
     const startX=e.clientX, startY=e.clientY;
     let lastX=startX, lastY=startY;
-    let mode="wait"; // wait -> drag | scroll | tap
-    let axis=null;   // scroll locks to dominant axis, like native iOS
+    let mode="wait"; // wait -> drag | tap; early movement = native scroll owns the gesture
     const samples=[];
-    const holdT=setTimeout(()=>{ if(mode==="wait"){ mode="drag"; lift(el,card,lastX,lastY); } },220);
-    try{ el.setPointerCapture(e.pointerId); }catch(_){}
+    const holdT=setTimeout(()=>{
+      if(mode==="wait"){
+        mode="drag";
+        try{ el.setPointerCapture(e.pointerId); }catch(_){}
+        lift(el,card,lastX,lastY);
+      }
+    },220);
+    const tm=(ev)=>{ if(mode==="drag") ev.preventDefault(); }; /* block native pan only while dragging */
+    el.addEventListener("touchmove",tm,{passive:false});
 
     function onMove(ev){
-      const dx=ev.clientX-lastX, dy=ev.clientY-lastY;
       if(mode==="wait"){
         const adx=Math.abs(ev.clientX-startX), ady=Math.abs(ev.clientY-startY);
-        if(adx>7||ady>7){
-          mode="scroll"; axis = adx>ady ? "x" : "y"; clearTimeout(holdT);
-        }
-      }
-      if(mode==="scroll"){
-        if(axis==="x"){ viewport.scrollLeft-=dx; syncHeads(); } else viewport.scrollTop-=dy;
-        const now=performance.now();
-        samples.push({t:now,x:ev.clientX,y:ev.clientY});
-        while(samples.length && now-samples[0].t>120) samples.shift();
-      }else if(mode==="drag"){
-        ev.preventDefault(); moveGhost(ev.clientX,ev.clientY);
+        if(adx>7||ady>7){ clearTimeout(holdT); mode="native"; cleanup(); return; }
+      } else if(mode==="drag"){
+        moveGhost(ev.clientX,ev.clientY);
         const now=performance.now();
         samples.push({t:now,x:ev.clientX,y:ev.clientY});
         while(samples.length && now-samples[0].t>100) samples.shift();
@@ -979,27 +963,25 @@ function attachPress(el,card){
         }
         drop(ev.clientX,ev.clientY,vx,vy);
       }
-      else if(mode==="scroll" && samples.length>1){
-        const a=samples[0], now=performance.now();
-        const dt=now-a.t;
-        if(dt>10){
-          const vx=(ev.clientX-a.x)/dt, vy=(ev.clientY-a.y)/dt;
-          fling(axis==="x"?vx:0, axis==="y"?vy:0);
-        }
-      }
       else if(mode==="wait"){
         inlineEditor(el.parentElement, card, null, el);
       }
       cleanup();
     }
+    function onCancel(){
+      clearTimeout(holdT);
+      if(mode==="drag"){ cleanupDrag(); render(); }
+      cleanup();
+    }
     function cleanup(){
       el.removeEventListener("pointermove",onMove);
       el.removeEventListener("pointerup",onUp);
-      el.removeEventListener("pointercancel",onUp);
+      el.removeEventListener("pointercancel",onCancel);
+      el.removeEventListener("touchmove",tm);
     }
     el.addEventListener("pointermove",onMove);
     el.addEventListener("pointerup",onUp);
-    el.addEventListener("pointercancel",onUp);
+    el.addEventListener("pointercancel",onCancel);
   });
 }
 
@@ -1057,7 +1039,6 @@ function moveGhost(x,y){
   else if(x<m) viewport.scrollLeft-=12;
   if(y>innerHeight-m) viewport.scrollTop+=12;
   else if(y<m+56) viewport.scrollTop-=12;
-  syncHeads();
 }
 function cellAt(x,y){
   /* geometric, forgiving: dead zones (gaps, lane labels) snap to the nearest cell */
@@ -1300,6 +1281,7 @@ function openPileFan(title,cards,laneId,colId){
       const pulled=board.querySelector('.card-el[data-id="'+card.id+'"]');
       if(pulled){ pulled.classList.add("microslap"); setTimeout(()=>pulled.classList.remove("microslap"),240); }
       const winEl=pulled && pulled.closest(".swin"); if(winEl) winEl.scrollTop=0;
+      if(pulled && pulled.scrollIntoView){ try{ pulled.scrollIntoView({block:"center",inline:"center"}); }catch(_){} }
     },{capture:true});
     g.appendChild(el);
   }
@@ -1364,7 +1346,7 @@ function inlineEditor(cell, card, target, replaceEl){
   }
   const blk=document.createElement("button");
   blk.className="tool"+(blocked?" on":"");
-  blk.textContent="Blocked";
+  blk.textContent=blocked?"Unblock":"Block";
   const whyin=document.createElement("input");
   whyin.className="whyin"; whyin.placeholder="Blocked why? (optional)";
   whyin.value=(card&&card.why)||"";
@@ -1372,6 +1354,7 @@ function inlineEditor(cell, card, target, replaceEl){
   whyin.addEventListener("pointerdown",(ev)=>{ ev.stopPropagation(); clearTimeout(blurT); },{passive:true});
   blk.addEventListener("pointerdown",(ev)=>{ev.preventDefault();},{passive:false});
   blk.addEventListener("click",()=>{ blocked=!blocked; blk.classList.toggle("on",blocked);
+    blk.textContent=blocked?"Unblock":"Block";
     whyin.style.display=blocked?"":"none"; if(blocked) whyin.focus(); });
   tools.appendChild(blk);
 
@@ -1382,14 +1365,16 @@ function inlineEditor(cell, card, target, replaceEl){
     del.addEventListener("click",()=>{ teardown(false); deleteCard(card); });
     tools.appendChild(del);
   }
-  const sp=document.createElement("div"); sp.className="spacer"; tools.appendChild(sp);
   const doneBtn=document.createElement("button");
   doneBtn.className="tool done"; doneBtn.textContent="Done";
   doneBtn.addEventListener("pointerdown",(ev)=>{ev.preventDefault();},{passive:false});
   doneBtn.addEventListener("click",commit);
-  tools.appendChild(doneBtn);
+  const actions=document.createElement("div"); actions.className="edit-actions";
+  actions.addEventListener("pointerdown",(ev)=>{ ev.preventDefault(); clearTimeout(blurT); },{passive:false});
+  actions.appendChild(doneBtn);
   el.appendChild(whyin);
   el.appendChild(tools);
+  el.appendChild(actions);
 
   function teardown(rerender=true){
     if(finished) return; finished=true;
@@ -1416,8 +1401,12 @@ function inlineEditor(cell, card, target, replaceEl){
     }
     save(); teardown();
   }
-  ta.addEventListener("blur",()=>{ blurT=setTimeout(()=>{ if(!finished) commit(); },140); });
+  const leaveCheck=()=>{ blurT=setTimeout(()=>{
+    if(!finished && !el.contains(document.activeElement)) commit(); },140); };
+  ta.addEventListener("blur",leaveCheck);
+  whyin.addEventListener("blur",leaveCheck);
   ta.addEventListener("focus",()=>{ clearTimeout(blurT); });
+  whyin.addEventListener("focus",()=>{ clearTimeout(blurT); });
   tools.addEventListener("pointerdown",(ev)=>{ ev.preventDefault(); clearTimeout(blurT); },{passive:false});
   ta.addEventListener("input",()=>{ ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px"; });
 
@@ -1450,30 +1439,32 @@ function inlineEditor(cell, card, target, replaceEl){
 function applyZoom(){ board.style.transform="scale("+(state.zoom||1)+")"; syncHeads(); }
 function syncHeads(){
   const hi=document.getElementById("headsIn");
-  if(hi) hi.style.transform="translate("+(-viewport.scrollLeft)+"px,0) scale("+(state.zoom||1)+")";
+  if(hi) hi.style.transform="scale("+(state.zoom||1)+")";
 }
-let headsRaf=null;
-viewport.addEventListener("scroll",()=>{
-  if(headsRaf) return;
-  headsRaf=requestAnimationFrame(()=>{ headsRaf=null; syncHeads(); });
-},{passive:true});
 let pinch=null;
 viewport.addEventListener("touchstart",(e)=>{
-  if(e.touches.length===2) pinch={d0:dist(e.touches), z0:state.zoom, zPrev:state.zoom};
+  if(e.touches.length===2){
+    const r=viewport.getBoundingClientRect();
+    pinch={d0:dist(e.touches), z0:state.zoom,
+      sx:viewport.scrollLeft, sy:viewport.scrollTop,
+      c0x:(e.touches[0].clientX+e.touches[1].clientX)/2 - r.left,
+      c0y:(e.touches[0].clientY+e.touches[1].clientY)/2 - r.top};
+  }
 },{passive:true});
 viewport.addEventListener("touchmove",(e)=>{
   if(pinch && e.touches.length===2){
     e.preventDefault();
     const z=Math.min(1.15, Math.max(0.4, pinch.z0 * dist(e.touches)/pinch.d0));
-    /* focal anchor: the world point under the pinch center stays put */
+    /* all math from gesture start: the world point under the initial pinch center
+       tracks the CURRENT finger midpoint — no frame-to-frame drift */
     const r=viewport.getBoundingClientRect();
     const cx=(e.touches[0].clientX+e.touches[1].clientX)/2 - r.left;
     const cy=(e.touches[0].clientY+e.touches[1].clientY)/2 - r.top;
-    const f=z/pinch.zPrev;
-    viewport.scrollLeft=(viewport.scrollLeft+cx)*f - cx;
-    viewport.scrollTop =(viewport.scrollTop +cy)*f - cy;
-    state.zoom=z; pinch.zPrev=z;
+    const f=z/pinch.z0;
+    state.zoom=z;
     applyZoom();
+    viewport.scrollLeft=(pinch.sx+pinch.c0x)*f - cx;
+    viewport.scrollTop =(pinch.sy+pinch.c0y)*f - cy;
   }
 },{passive:false});
 viewport.addEventListener("touchend",()=>{ if(pinch){ pinch=null; save(); requestAnimationFrame(layTape); } });
