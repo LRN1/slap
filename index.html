@@ -319,6 +319,7 @@
     -webkit-mask-image:linear-gradient(to bottom, black 82%, rgba(0,0,0,.35) 94%, transparent);
     mask-image:linear-gradient(to bottom, black 82%, rgba(0,0,0,.35) 94%, transparent);}
   .swin::-webkit-scrollbar{display:none;width:0;}
+  .swin.atend{-webkit-mask-image:none !important;mask-image:none !important;}
   .pile{position:relative;height:38px;transition:height .18s ease, opacity .18s ease, margin .18s ease;}
   .pile.pgone{height:0 !important;opacity:0;margin:0;pointer-events:none;}
   .pedges{position:absolute;inset:0;}
@@ -497,6 +498,7 @@
   <button class="mrow" id="mRand">Random sticky color <span class="tgl" id="randTgl"></span></button>
   <button class="mrow" id="mArch">Archive <span class="tgl" id="archTgl"></span></button>
   <button id="menuClose">Done</button>
+  <div id="buildTag" style="text-align:center;color:#6E6A62;font:600 10px -apple-system;letter-spacing:.14em;text-transform:uppercase;margin-top:12px;"></div>
 </div>
 <div id="ledgerOv"></div>
 <div id="sheet"></div>
@@ -516,7 +518,17 @@ if(!window.storage){
 window.addEventListener("error",(e)=>{
   const d=document.createElement("div");
   d.style.cssText="position:fixed;bottom:0;left:0;right:0;background:#5A1F16;color:#fff;font:12px/1.4 monospace;padding:10px;z-index:999;";
-  d.textContent="Error: "+e.message;
+  const st=(e.error&&e.error.stack)?"  @ "+String(e.error.stack).split("\n").slice(0,2).join(" < "):"";
+  d.textContent="Error: "+e.message+st;
+  d.addEventListener("click",()=>d.remove());
+  document.body.appendChild(d);
+});
+window.addEventListener("unhandledrejection",(e)=>{
+  const d=document.createElement("div");
+  d.style.cssText="position:fixed;bottom:0;left:0;right:0;background:#5A3A16;color:#fff;font:12px/1.4 monospace;padding:10px;z-index:999;";
+  const r=e.reason;
+  d.textContent="Async error: "+(r&&r.message?r.message:String(r))+(r&&r.stack?"  @ "+String(r.stack).split("\n").slice(0,2).join(" < "):"");
+  d.addEventListener("click",()=>d.remove());
   document.body.appendChild(d);
 });
 
@@ -531,6 +543,7 @@ const COLORS = [   /* GALLERY: flat realistic paper */
 const COLW = 250;
 document.documentElement.style.setProperty("--colw", COLW+"px");
 const KEY = "board-v3";
+const BUILD = "i32 \u00b7 2026-09-08";
 
 let db = null;      /* {v,current,doneFx,boards:[...]} */
 let state = null;   /* the ACTIVE board: {id,name,zoom,columns,lanes,cards} */
@@ -807,6 +820,7 @@ function renderNow(){
           const below=kids.filter(k=>k.getBoundingClientRect().top>=wb);
           p.querySelector(".pcnt").textContent="+"+below.length;
           p.classList.toggle("pgone", below.length===0);
+          win.classList.toggle("atend", win.scrollTop+win.clientHeight >= win.scrollHeight-4);
           if(below.length) p.style.height=(24+Math.min(below.length,3)*8+Math.min(below.length,20))+"px";
           p._below=below.map(k=>state.cards.find(c=>c.id===k.dataset.id)).filter(Boolean);
           /* buried edges: slivers in the actual colors of the hidden cards */
@@ -827,8 +841,8 @@ function renderNow(){
         for(const card of cards) cell.appendChild(cardEl(card));
       }
       const blank=document.createElement("div"); blank.className="ghost-note";
-      const winHost=cell.querySelector(".swin");
-      if(winHost) winHost.appendChild(blank); else cell.appendChild(blank);
+      if(cards.length>5) cell.insertBefore(blank, cell.firstChild);
+      else cell.appendChild(blank);
       cell.addEventListener("click",(e)=>{
         /* empty patch of the cell, or the ghost sticky itself */
         if(e.target===cell || e.target===blank || blank.contains(e.target)){
@@ -1313,9 +1327,15 @@ function inlineEditor(cell, card, target, replaceEl){
   /* origin anchor stays on the board = geographic position context */
   const anchor=document.createElement("div");
   anchor.className="origin-slot";
-  if(isNew) cell.insertBefore(anchor, replaceEl);
-  else cell.replaceChild(anchor, replaceEl);
-  if(isNew && cellCardEls(cell).length===0) anchor.style.visibility="hidden";
+  if(isNew){
+    if(replaceEl && replaceEl.parentNode) replaceEl.parentNode.insertBefore(anchor, replaceEl);
+    else cell.appendChild(anchor);
+  } else {
+    if(replaceEl && replaceEl.parentNode) replaceEl.parentNode.replaceChild(anchor, replaceEl);
+    else cell.appendChild(anchor);
+  }
+  if(isNew && cell.querySelector(".swin")) anchor.style.display="none";
+  else if(isNew && cellCardEls(cell).length===0) anchor.style.visibility="hidden";
 
   const el=document.createElement("div");
   el.className="card-el editing focus";
@@ -1394,7 +1414,8 @@ function inlineEditor(cell, card, target, replaceEl){
       state.cards.push(nc);
       setTimeout(()=>{
         const el=board.querySelector('.card-el[data-id="'+nc.id+'"]');
-        if(el){ el.classList.add("microslap"); setTimeout(()=>el.classList.remove("microslap"),220); }
+        if(el){ el.classList.add("microslap"); setTimeout(()=>el.classList.remove("microslap"),220);
+          const sw=el.closest(".swin"); if(sw) sw.scrollTop=sw.scrollHeight; }
       },0);
     }else{
       Object.assign(card,{text,color,blocked,why});
@@ -1597,6 +1618,7 @@ document.getElementById("mArch").addEventListener("click",()=>{
   save(); refreshPill(); render();
 });
 
+document.getElementById("buildTag").textContent="SLAP "+BUILD;
 /* ============ boot ============ */
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
