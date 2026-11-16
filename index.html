@@ -466,6 +466,11 @@
   .apprSeg button.on{background:#ECE9E3;color:#191817;border-color:#ECE9E3;}
   body:not(.darkmode) .apprSeg button{border-color:#B9B2A2;color:#6E675B;}
   body:not(.darkmode) .apprSeg button.on{background:#2B2721;color:#EDE8DB;border-color:#2B2721;}
+  .clrdone{appearance:none;align-self:center;margin-top:6px;min-height:44px;padding:0 14px;
+    background:transparent;color:var(--ink-dim);border:1px solid var(--hairL);border-radius:3px;
+    font:700 9.5px/1 -apple-system,system-ui;letter-spacing:.16em;transition:background .15s,color .15s,border-color .15s;}
+  .clrdone.arm{background:#A82A1E;color:#F5EFE6;border-color:#A82A1E;}
+  body.fit .clrdone{padding:0 8px;letter-spacing:.1em;}
   /* ===== i33: lanes as tabs + two snapped zoom levels ===== */
   .ltabs{position:sticky;left:0;width:100vw;display:flex;gap:2px;padding:0 6px;overflow-x:auto;scrollbar-width:none;
     pointer-events:auto;background:var(--bg);border-bottom:1px solid var(--hairL);}
@@ -482,11 +487,6 @@
   /* one lane owns the screen: columns run to the bottom so a drop anywhere in a column lands */
   body:not(.edit-on) .lane-row{min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 215px);
     min-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 215px);}
-  .zoom-btn{appearance:none;border:0;background:transparent;color:var(--ink-dim);width:40px;height:40px;
-    display:grid;place-items:center;padding:0;}
-  .zoom-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;}
-  body.fit .zoom-btn{color:var(--ink);}
-  body.edit-on .zoom-btn{display:none;}
   body.fit #board .card-el, body.fit #ghost .card-el{padding:9px 8px 11px;min-height:54px;}
   body.fit #board .card-el .t, body.fit #ghost .card-el .t{font-size:13.5px;line-height:1.22;}
   body.fit .cell{padding:6px 3px 8px;gap:8px;}
@@ -504,7 +504,6 @@
 <header>
   <div class="brand" id="brand">Board</div>
   <button class="hdr-done" id="hdrDone">Done</button>
-  <button class="zoom-btn" id="zoomBtn" aria-label="Fit lane to screen" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="4" height="13" rx="1"/><rect x="8" y="3.5" width="4" height="13" rx="1"/><rect x="13.5" y="3.5" width="4" height="13" rx="1"/></svg></button>
   <button class="menu-btn" id="menuBtn" aria-label="Menu">⋯</button>
 </header>
 
@@ -512,7 +511,6 @@
 <div id="ghost"></div>
 <div id="dim"></div>
 <div id="pileFan"></div>
-<button id="ledgerPill">Ledger</button>
 <div id="menuP">
   <button class="mrow" id="mEditB">Edit board <span>›</span></button>
   <button class="mrow" id="mBoards">Manage boards <span>›</span></button>
@@ -528,11 +526,9 @@
   </div>
   <button class="mrow dim">Theme <span>soon</span></button>
   <button class="mrow" id="mRand">Random sticky color <span class="tgl" id="randTgl"></span></button>
-  <button class="mrow" id="mArch">Archive <span class="tgl" id="archTgl"></span></button>
   <button id="menuClose">Done</button>
   <div id="buildTag" style="text-align:center;color:#6E6A62;font:600 10px -apple-system;letter-spacing:.14em;text-transform:uppercase;margin-top:12px;"></div>
 </div>
-<div id="ledgerOv"></div>
 <div id="sheet"></div>
 <div class="toast" id="toast"></div>
 
@@ -575,7 +571,7 @@ const COLORS = [   /* GALLERY: flat realistic paper */
 const COLW = 250;
 document.documentElement.style.setProperty("--colw", COLW+"px");
 const KEY = "board-v3";
-const BUILD = "i33 \u00b7 2026-11-16";
+const BUILD = "i34 \u00b7 2026-11-16";
 
 let db = null;      /* {v,current,doneFx,boards:[...]} */
 let state = null;   /* the ACTIVE board: {id,name,zoom,columns,lanes,cards} */
@@ -885,16 +881,16 @@ function renderNow(){
         }
       });
       row.appendChild(cell);
-      if(!editMode && db.archOn && DONE.has(col.id)){
-        const tr=document.createElement("div"); tr.className="tray"; tr.dataset.lane=lane.id;
-        tr.innerHTML='<div class="dz">ARCHIVE</div><button class="allbar">ALL \u25B8</button>';
-        const ab=tr.querySelector(".allbar");
-        ab.addEventListener("click",()=>{
-          if(ab.classList.contains("arm")){ sweepLaneDone(lane.id); return; }
-          ab.classList.add("arm"); ab.textContent="SURE?";
-          setTimeout(()=>{ if(ab.isConnected){ ab.classList.remove("arm"); ab.textContent="ALL \u25B8"; } },2600);
+      if(!editMode && DONE.has(col.id) && cards.length){
+        /* i34: no tray, no ledger. One quiet button clears this lane's Done (Sure? + Undo). */
+        const cb=document.createElement("button"); cb.className="clrdone"; cb.textContent="CLEAR DONE";
+        cb.addEventListener("click",(ev)=>{
+          ev.stopPropagation();
+          if(cb.classList.contains("arm")){ sweepLaneDone(lane.id); return; }
+          cb.classList.add("arm"); cb.textContent="SURE?";
+          setTimeout(()=>{ if(cb.isConnected){ cb.classList.remove("arm"); cb.textContent="CLEAR DONE"; } },2600);
         });
-        row.appendChild(tr);
+        cell.appendChild(cb);
       }
     }
     laneEl.appendChild(row);
@@ -1034,15 +1030,6 @@ function attachPress(el,card){
   });
 }
 
-function overTrayOrPill(x,y){
-  for(const t of document.querySelectorAll(".lane:not(.off) .tray")){
-    const r=t.getBoundingClientRect();
-    if(x>r.left-10&&x<r.right+10&&y>r.top-10&&y<r.bottom+10) return t;
-  }
-  const pr=ledgerPill.getBoundingClientRect();
-  if(db.archOn && x>pr.left-14&&x<pr.right+14&&y>pr.top-14&&y<pr.bottom+14) return ledgerPill;
-  return null;
-}
 function lift(el,card,x,y){
   drag={card, srcEl:el, ox:x, oy:y, moved:false};
   el.classList.add("lifting");
@@ -1067,12 +1054,6 @@ function insertIndexFor(cell,y){
 }
 function moveGhost(x,y){
   document.body.classList.add("dragLive");
-  if(db.archOn){
-    const ht=overTrayOrPill(x,y);
-    document.querySelectorAll(".tray").forEach(t=>t.classList.toggle("hot",t===ht));
-    ledgerPill.classList.toggle("hot",ht===ledgerPill);
-    ledgerPill.classList.add("ready");
-  }
   if(drag && !drag.moved && Math.hypot(x-drag.ox,y-drag.oy)>10) drag.moved=true;
   /* i33: hover a lane tab while carrying -> that lane springs open */
   const tb=tabAt(x,y);
@@ -1180,10 +1161,6 @@ function drop(x,y,vx=0,vy=0){
   if(!wasStill && drag){
     const c=drag.card;
     const speed=Math.hypot(vx,vy);
-    if(db.archOn){
-      const t=overTrayOrPill(x,y);
-      if(t){ cleanupDrag(); archiveItems([c]); return; }
-    }
     const tbd=tabAt(x,y);
     if(tbd && tbd.dataset.lane!==c.lane){
       /* dropped ON a lane tab: send it to that lane, same column, bottom */
@@ -1251,8 +1228,6 @@ function finishDragVisuals(){
   clearTimeout(springT); springLane=null;
   document.querySelectorAll(".ltab.hot").forEach(b=>b.classList.remove("hot"));
   document.body.classList.remove("dragLive");
-  document.querySelectorAll(".tray.hot").forEach(t=>t.classList.remove("hot"));
-  ledgerPill.classList.remove("ready","hot");
   document.querySelectorAll(".cell.drop").forEach(c=>c.classList.remove("drop"));
   document.querySelectorAll(".lane-row.hot").forEach(r=>r.classList.remove("hot"));
   if(drag&&drag.srcEl) drag.srcEl.classList.remove("lifting");
@@ -1290,10 +1265,7 @@ function normalizeOrds(lane,col){
   state.cards.filter(k=>k.lane===lane&&k.col===col)
     .sort((a,b)=>a.ord-b.ord).forEach((k,i)=>{ k.ord=i; });
 }
-const ledgerPill=document.getElementById("ledgerPill");
-const ledgerOv=document.getElementById("ledgerOv");
-function refreshPill(){ ledgerPill.style.display=db.archOn?"":"none"; }
-function filedPulse(){ ledgerPill.classList.add("filed"); setTimeout(()=>ledgerPill.classList.remove("filed"),350); }
+function refreshPill(){} /* i34: pill removed; kept as a no-op for restore paths */
 function archiveItems(cards){
   rollWeek();
   const snap=cards.map(c=>({t:c.text,c:c.color,ts:Date.now()}));
@@ -1303,8 +1275,8 @@ function archiveItems(cards){
   state.cards=state.cards.filter(c=>!ids.has(c.id));
   const cells=[...new Set(removed.map(c=>c.lane+"\u0000"+c.col))];
   cells.forEach(k=>{ const [l,c]=k.split("\u0000"); normalizeOrds(l,c); });
-  save(); render(); filedPulse();
-  toastUndo((removed.length===1?"Archived":"Archived "+removed.length), ()=>{
+  save(); render();
+  toastUndo((removed.length===1?"Cleared":"Cleared "+removed.length), ()=>{
     state.cards.push(...removed);
     cells.forEach(k=>{ const [l,c]=k.split("\u0000"); normalizeOrds(l,c); });
     db.archive.cur.items.length -= snap.length;
@@ -1319,21 +1291,6 @@ function sweepLaneDone(laneId){
   const cards=state.cards.filter(c=>DONE.has(c.col)&&c.lane===laneId);
   if(cards.length) archiveItems(cards);
 }
-function openLedger(){
-  rollWeek();
-  let rows='<div class="lh">Done — running ledger</div>';
-  const blocks=[...db.archive.weeks.slice(-8), db.archive.cur];
-  for(const w of blocks){
-    const label = (w===db.archive.cur) ? ("week "+w.n+" · this week") : ("week "+w.n);
-    rows+=`<div class="wk">— ${label} — ${w.items.length}</div>`;
-    for(const it of w.items.slice(-60)) rows+=`<div class="li"><b>✓</b>${esc(it.t)}</div>`;
-  }
-  rows+=`<div class="sum">Cumulative total: ${archTotal()}</div>`;
-  ledgerOv.innerHTML=`<div class="ledger">${rows}</div>`;
-  ledgerOv.classList.add("on");
-}
-ledgerPill.addEventListener("click",openLedger);
-ledgerOv.addEventListener("click",()=>ledgerOv.classList.remove("on"));
 const pileFan=document.getElementById("pileFan");
 function openPileFan(title,cards,laneId,colId){
   pileFan.innerHTML=`<div class="fanttl">${esc(title)} — ${cards.length} in the pile · tap a sticky to pull it to the top</div>`;
@@ -1524,8 +1481,6 @@ function applyFit(){
   const on=!!(state && state.fit) && !editMode;
   document.body.classList.toggle("fit", on);
   document.documentElement.style.setProperty("--colw", colW()+"px");
-  const zb=document.getElementById("zoomBtn");
-  if(zb) zb.setAttribute("aria-pressed", on?"true":"false");
 }
 function setFit(v,cx){
   v=!!v;
@@ -1686,10 +1641,8 @@ if(sysDark && sysDark.addEventListener) sysDark.addEventListener("change",()=>{ 
 /* ============ menu ============ */
 const menuBtn=document.getElementById("menuBtn");
 const menuP=document.getElementById("menuP");
-document.getElementById("zoomBtn").addEventListener("click",()=>{ if(!editMode) setFit(!state.fit, viewport.clientWidth/2); });
 window.addEventListener("resize",()=>{ if(state){ applyFit(); requestAnimationFrame(layTape); } });
 menuBtn.addEventListener("click",()=>{ 
-  document.getElementById("archTgl").classList.toggle("on",!!db.archOn);
   document.getElementById("randTgl").classList.toggle("on",!!db.randColor);
   applyAppearance();
   menuP.classList.add("on"); 
@@ -1707,11 +1660,6 @@ document.getElementById("mRand").addEventListener("click",()=>{
   db.randColor=!db.randColor;
   document.getElementById("randTgl").classList.toggle("on",db.randColor);
   save();
-});
-document.getElementById("mArch").addEventListener("click",()=>{
-  db.archOn=!db.archOn;
-  document.getElementById("archTgl").classList.toggle("on",db.archOn);
-  save(); refreshPill(); render();
 });
 
 document.getElementById("buildTag").textContent="SLAP "+BUILD;
