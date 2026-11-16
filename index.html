@@ -466,6 +466,37 @@
   .apprSeg button.on{background:#ECE9E3;color:#191817;border-color:#ECE9E3;}
   body:not(.darkmode) .apprSeg button{border-color:#B9B2A2;color:#6E675B;}
   body:not(.darkmode) .apprSeg button.on{background:#2B2721;color:#EDE8DB;border-color:#2B2721;}
+  /* ===== i33: lanes as tabs + two snapped zoom levels ===== */
+  .ltabs{position:sticky;left:0;width:100vw;display:flex;gap:2px;padding:0 6px;overflow-x:auto;scrollbar-width:none;
+    pointer-events:auto;background:var(--bg);border-bottom:1px solid var(--hairL);}
+  .ltabs::-webkit-scrollbar{display:none;}
+  .ltabs:empty{display:none;}
+  .ltab{appearance:none;border:0;background:transparent;color:var(--ink-dim);flex:0 0 auto;height:44px;padding:0 12px;
+    font:600 11px/1 -apple-system,system-ui;letter-spacing:.18em;text-transform:uppercase;
+    border-bottom:2px solid transparent;white-space:nowrap;transition:background .12s,color .12s;}
+  .ltab.on{color:var(--ink);border-bottom-color:var(--ink);}
+  .ltab .lcnt{letter-spacing:0;margin-left:5px;opacity:.8;}
+  .ltab.hot{background:rgba(127,120,105,.18);color:var(--ink);}
+  .lane.off{position:absolute;left:0;top:0;height:0;margin:0;padding:0;overflow:hidden;visibility:hidden;pointer-events:none;}
+  body:not(.edit-on) .lane{margin-top:2px;padding-top:0;}
+  /* one lane owns the screen: columns run to the bottom so a drop anywhere in a column lands */
+  body:not(.edit-on) .lane-row{min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 215px);
+    min-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 215px);}
+  .zoom-btn{appearance:none;border:0;background:transparent;color:var(--ink-dim);width:40px;height:40px;
+    display:grid;place-items:center;padding:0;}
+  .zoom-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;}
+  body.fit .zoom-btn{color:var(--ink);}
+  body.edit-on .zoom-btn{display:none;}
+  body.fit #board .card-el, body.fit #ghost .card-el{padding:9px 8px 11px;min-height:54px;}
+  body.fit #board .card-el .t, body.fit #ghost .card-el .t{font-size:13.5px;line-height:1.22;}
+  body.fit .cell{padding:6px 3px 8px;gap:8px;}
+  body.fit .swin{padding:4px 3px 10px;gap:8px;}
+  body.fit .colhead{padding:8px 2px 6px;gap:5px;}
+  body.fit .colhead .cname{font-size:10px;letter-spacing:.12em;}
+  body.fit #board .card-el.blocked::after{top:-7px;right:-5px;font-size:8px;padding:3px 6px;}
+  .swin>.card-el{flex:0 0 auto;} /* never squash a sticky to fit the scroll window */
+  body.fit #board .card-el .why{font-size:11px;}
+  body.fit #board .chip{font-size:10px;padding:4px 6px;}
   #brand::after{content:"▾";font-size:10px;margin-left:7px;color:var(--ink-dim);}
 </style>
 </head>
@@ -473,10 +504,11 @@
 <header>
   <div class="brand" id="brand">Board</div>
   <button class="hdr-done" id="hdrDone">Done</button>
+  <button class="zoom-btn" id="zoomBtn" aria-label="Fit lane to screen" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="4" height="13" rx="1"/><rect x="8" y="3.5" width="4" height="13" rx="1"/><rect x="13.5" y="3.5" width="4" height="13" rx="1"/></svg></button>
   <button class="menu-btn" id="menuBtn" aria-label="Menu">⋯</button>
 </header>
 
-<div id="viewport"><div id="heads"><div id="headsIn"></div></div><div id="board"></div></div>
+<div id="viewport"><div id="heads"><div id="laneTabs" class="ltabs"></div><div id="headsIn"></div></div><div id="board"></div></div>
 <div id="ghost"></div>
 <div id="dim"></div>
 <div id="pileFan"></div>
@@ -543,7 +575,7 @@ const COLORS = [   /* GALLERY: flat realistic paper */
 const COLW = 250;
 document.documentElement.style.setProperty("--colw", COLW+"px");
 const KEY = "board-v3";
-const BUILD = "i32 \u00b7 2026-09-08";
+const BUILD = "i33 \u00b7 2026-11-16";
 
 let db = null;      /* {v,current,doneFx,boards:[...]} */
 let state = null;   /* the ACTIVE board: {id,name,zoom,columns,lanes,cards} */
@@ -717,7 +749,7 @@ function layTape(){
   document.querySelectorAll(".tapeV,.tapeH").forEach(e=>e.remove());
   const br=board.getBoundingClientRect();
   if(!br.width) return; /* jsdom / pre-layout */
-  const firstRow=board.querySelector(".lane-row");
+  const firstRow=board.querySelector(".lane:not(.off) .lane-row");
   if(!firstRow) return;
   const cells=[...firstRow.querySelectorAll(":scope > .cell")];
   const z=state.zoom||1;
@@ -728,7 +760,7 @@ function layTape(){
     const v=document.createElement("div"); v.className="tapeV"; v.style.left=x+"px";
     board.appendChild(v);
   }
-  const lanes=[...board.querySelectorAll(".lane")];
+  const lanes=[...board.querySelectorAll(".lane:not(.off)")];
   lanes.slice(1).forEach(l=>{
     const r=l.getBoundingClientRect();
     const h=document.createElement("div"); h.className="tapeH";
@@ -745,11 +777,26 @@ function renderNow(){
   const sl=document.getElementById("mStyleLbl");
   if(sl) sl.textContent="Style: "+({s2:"Studio",s5:"Daylight",s7:"Real",s6:"Chalk"}[db.theme]||"Studio");
   if(brand) brand.textContent = editMode ? "Editing layout" : (state.name||"Board");
+  state.zoom=1; /* i33: free zoom retired; two snapped levels via state.fit */
+  if(!state.lanes.some(l=>l.id===state.curLane)) state.curLane=state.lanes[0].id;
+  applyFit();
   applyZoom();
 
   board.innerHTML="";
   const headsHost=document.getElementById("headsIn");
   headsHost.innerHTML="";
+  const tabsHost=document.getElementById("laneTabs");
+  tabsHost.innerHTML="";
+  if(!editMode){
+    for(const l of state.lanes){
+      const b=document.createElement("button");
+      b.className="ltab"+(l.id===state.curLane?" on":""); b.dataset.lane=l.id;
+      const n=state.cards.filter(c=>c.lane===l.id).length;
+      b.innerHTML=esc(l.name)+(n?'<span class="lcnt">'+n+'</span>':'');
+      b.addEventListener("click",()=>setLane(l.id));
+      tabsHost.appendChild(b);
+    }
+  }
   const heads=document.createElement("div"); heads.className="colheads";
   for(const col of state.columns){
     const h=document.createElement("div"); h.className="colhead";
@@ -761,7 +808,7 @@ function renderNow(){
       h.appendChild(inp); h.appendChild(x);
       if(col.id===focusEditId){ focusEditId=null; setTimeout(()=>{ inp.focus(); inp.select(); },40); }
     }else{
-      const n=state.cards.filter(c=>c.col===col.id).length;
+      const n=state.cards.filter(c=>c.col===col.id&&c.lane===state.curLane).length;
       h.innerHTML=`<span class="cname">${esc(col.name)}</span><span class="count">${n||""}</span>`;
     }
     heads.appendChild(h);
@@ -776,7 +823,7 @@ function renderNow(){
   syncHeads();
 
   for(const lane of state.lanes){
-    const laneEl=document.createElement("div"); laneEl.className="lane";
+    const laneEl=document.createElement("div"); laneEl.className="lane"; laneEl.dataset.lane=lane.id;
     if(editMode){
       const lab=document.createElement("div"); lab.className="lane-label edit";
       const inp=document.createElement("input"); inp.className="hedit"; inp.value=lane.name;
@@ -787,20 +834,8 @@ function renderNow(){
       if(lane.id===focusEditId){ focusEditId=null; setTimeout(()=>{ inp.focus(); inp.select(); },40); }
       laneEl.appendChild(lab);
     } else {
-      const folded=!!(state.folded||{})[lane.id];
-      if(folded) laneEl.classList.add("laneFolded");
-      const lab=document.createElement("div"); lab.className="lane-label";
-      lab.innerHTML=`${esc(lane.name)} <span class="car">${folded?"▸":"▾"}</span>`;
-      lab.addEventListener("click",()=>{
-        state.folded=state.folded||{};
-        state.folded[lane.id]=!state.folded[lane.id];
-        save(); render();
-      });
-      laneEl.appendChild(lab);
-      const fb=document.createElement("div"); fb.className="foldbar";
-      const cnt=state.cards.filter(c=>c.lane===lane.id).length;
-      fb.textContent=cnt+" stickies hidden — tap the tab to unfold";
-      laneEl.appendChild(fb);
+      /* i33: one lane on screen; the others stay in the DOM (drag capture survives a tab switch) */
+      if(lane.id!==state.curLane) laneEl.classList.add("off");
     }
     const row=document.createElement("div"); row.className="lane-row";
     for(const col of state.columns){
@@ -946,7 +981,7 @@ function attachPress(el,card){
     let mode="wait"; // wait -> drag | tap; early movement = native scroll owns the gesture
     const samples=[];
     const holdT=setTimeout(()=>{
-      if(mode==="wait"){
+      if(mode==="wait" && !pinch){
         mode="drag";
         try{ el.setPointerCapture(e.pointerId); }catch(_){}
         lift(el,card,lastX,lastY);
@@ -1000,7 +1035,7 @@ function attachPress(el,card){
 }
 
 function overTrayOrPill(x,y){
-  for(const t of document.querySelectorAll(".tray")){
+  for(const t of document.querySelectorAll(".lane:not(.off) .tray")){
     const r=t.getBoundingClientRect();
     if(x>r.left-10&&x<r.right+10&&y>r.top-10&&y<r.bottom+10) return t;
   }
@@ -1039,7 +1074,17 @@ function moveGhost(x,y){
     ledgerPill.classList.add("ready");
   }
   if(drag && !drag.moved && Math.hypot(x-drag.ox,y-drag.oy)>10) drag.moved=true;
-  ghost.style.left=(x - COLW*state.zoom/2)+"px";
+  /* i33: hover a lane tab while carrying -> that lane springs open */
+  const tb=tabAt(x,y);
+  document.querySelectorAll(".ltab.hot").forEach(b=>{ if(b!==tb) b.classList.remove("hot"); });
+  if(tb){
+    tb.classList.add("hot");
+    if(tb.dataset.lane!==state.curLane && springLane!==tb.dataset.lane){
+      clearTimeout(springT); springLane=tb.dataset.lane;
+      springT=setTimeout(()=>{ const id=springLane; springLane=null; if(drag && id) setLane(id); },380);
+    }
+  } else if(springLane){ clearTimeout(springT); springLane=null; }
+  ghost.style.left=(x - colW()/2)+"px";
   ghost.style.top=(y - 34)+"px";
   document.querySelectorAll(".cell.drop").forEach(c=>c.classList.remove("drop"));
   document.querySelectorAll(".lane-row.hot").forEach(r=>r.classList.remove("hot"));
@@ -1057,7 +1102,7 @@ function moveGhost(x,y){
 function cellAt(x,y){
   /* geometric, forgiving: dead zones (gaps, lane labels) snap to the nearest cell */
   let best=null, bestD=Infinity;
-  document.querySelectorAll(".cell").forEach(c=>{
+  document.querySelectorAll(".lane:not(.off) .cell").forEach(c=>{
     const r=c.getBoundingClientRect();
     const pad=14; /* tolerance beyond the visual edge */
     if(x>=r.left-pad && x<=r.right+pad && y>=r.top-pad && y<=r.bottom+pad){
@@ -1072,7 +1117,7 @@ function bestFlickCell(x,y,vx,vy,fromLane,fromCol){
   const speed=Math.hypot(vx,vy);
   if(speed<0.5) return null;
   let best=null, bestDot=0.45;
-  document.querySelectorAll(".cell").forEach(cel=>{
+  document.querySelectorAll(".lane:not(.off) .cell").forEach(cel=>{
     if(cel.dataset.lane===fromLane && cel.dataset.col===fromCol) return;
     const r=cel.getBoundingClientRect();
     const tx=r.left+r.width/2, ty=Math.min(Math.max(y,r.top+50), r.bottom-30);
@@ -1139,6 +1184,15 @@ function drop(x,y,vx=0,vy=0){
       const t=overTrayOrPill(x,y);
       if(t){ cleanupDrag(); archiveItems([c]); return; }
     }
+    const tbd=tabAt(x,y);
+    if(tbd && tbd.dataset.lane!==c.lane){
+      /* dropped ON a lane tab: send it to that lane, same column, bottom */
+      const prevT=placeCard(c, tbd.dataset.lane, c.col, null);
+      const lnT=state.lanes.find(l=>l.id===c.lane);
+      cleanupDrag(); render();
+      crossToast({card:c, prev:{...prevT,ord:0}, name:lnT?lnT.name:"lane"});
+      return;
+    }
     const cell=cellAt(x,y);
     if(cell){
       const idx=insertIndexFor(cell,y);
@@ -1156,8 +1210,8 @@ function drop(x,y,vx=0,vy=0){
     if(tgt){
       /* fly the ghost the rest of the way, then land at the bottom */
       const r=tgt.getBoundingClientRect();
-      const gx=x-COLW*state.zoom/2, gy=y-34;
-      const tx=r.left+r.width/2-COLW*state.zoom/2, ty=Math.min(gy, r.top+50);
+      const gx=x-colW()/2, gy=y-34;
+      const tx=r.left+r.width/2-colW()/2, ty=Math.min(gy, r.top+50);
       const dist=Math.hypot(tx-gx,ty-gy);
       const dur=Math.min(320,Math.max(150,dist/((speed||1)*1.4)));
       const laneId=tgt.dataset.lane, colId=tgt.dataset.col;
@@ -1194,6 +1248,8 @@ function cleanupDrag(){
 }
 function finishDragVisuals(){
   ghost.style.display="none";
+  clearTimeout(springT); springLane=null;
+  document.querySelectorAll(".ltab.hot").forEach(b=>b.classList.remove("hot"));
   document.body.classList.remove("dragLive");
   document.querySelectorAll(".tray.hot").forEach(t=>t.classList.remove("hot"));
   ledgerPill.classList.remove("ready","hot");
@@ -1456,6 +1512,52 @@ function inlineEditor(cell, card, target, replaceEl){
   ta.setSelectionRange(ta.value.length,ta.value.length);
 }
 
+/* ============ i33: lanes as tabs + snapped zoom ============ */
+let springT=null, springLane=null;
+function colW(){
+  if(!state || !state.fit || editMode) return COLW;
+  const vw=viewport.clientWidth||0;
+  if(!vw) return COLW; /* jsdom / pre-layout */
+  return Math.max(92, Math.floor((vw-24)/state.columns.length)-10);
+}
+function applyFit(){
+  const on=!!(state && state.fit) && !editMode;
+  document.body.classList.toggle("fit", on);
+  document.documentElement.style.setProperty("--colw", colW()+"px");
+  const zb=document.getElementById("zoomBtn");
+  if(zb) zb.setAttribute("aria-pressed", on?"true":"false");
+}
+function setFit(v,cx){
+  v=!!v;
+  if(!!state.fit===v) return;
+  let idx=null;
+  if(!v && cx!=null) idx=Math.max(0,Math.floor((cx+viewport.scrollLeft-12)/(colW()+10)));
+  state.fit=v; save(); render();
+  if(v) viewport.scrollLeft=0;
+  else if(idx!==null){ const full=COLW+10;
+    viewport.scrollLeft=Math.max(0, 12+idx*full-(viewport.clientWidth-full)/2); }
+  requestAnimationFrame(layTape);
+}
+function applyLane(){
+  board.querySelectorAll(".lane").forEach(el=>el.classList.toggle("off", el.dataset.lane!==state.curLane));
+  document.querySelectorAll(".ltab").forEach(b=>b.classList.toggle("on", b.dataset.lane===state.curLane));
+  requestAnimationFrame(layTape);
+}
+function setLane(id){
+  if(!state.lanes.some(l=>l.id===id) || id===state.curLane) return;
+  state.curLane=id; save();
+  if(drag) applyLane();               /* DOM-only: never re-render under a live drag */
+  else { renderNow(); requestAnimationFrame(layTape); }
+}
+function tabAt(x,y){
+  for(const b of document.querySelectorAll(".ltab")){
+    const r=b.getBoundingClientRect();
+    if(!r.width) continue;
+    if(x>=r.left && x<=r.right && y>=r.top-6 && y<=r.bottom+6) return b;
+  }
+  return null;
+}
+
 /* ============ pinch zoom ============ */
 function applyZoom(){ board.style.transform="scale("+(state.zoom||1)+")"; syncHeads(); }
 function syncHeads(){
@@ -1464,31 +1566,23 @@ function syncHeads(){
 }
 let pinch=null;
 viewport.addEventListener("touchstart",(e)=>{
-  if(e.touches.length===2){
+  if(e.touches.length===2 && !drag && !editMode){
     const r=viewport.getBoundingClientRect();
-    pinch={d0:dist(e.touches), z0:state.zoom,
-      sx:viewport.scrollLeft, sy:viewport.scrollTop,
-      c0x:(e.touches[0].clientX+e.touches[1].clientX)/2 - r.left,
-      c0y:(e.touches[0].clientY+e.touches[1].clientY)/2 - r.top};
-  }
+    pinch={d0:dist(e.touches), done:false,
+      cx:(e.touches[0].clientX+e.touches[1].clientX)/2 - r.left};
+  } else if(e.touches.length===1) pinch=null;
 },{passive:true});
 viewport.addEventListener("touchmove",(e)=>{
   if(pinch && e.touches.length===2){
     e.preventDefault();
-    const z=Math.min(1.15, Math.max(0.4, pinch.z0 * dist(e.touches)/pinch.d0));
-    /* all math from gesture start: the world point under the initial pinch center
-       tracks the CURRENT finger midpoint — no frame-to-frame drift */
-    const r=viewport.getBoundingClientRect();
-    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2 - r.left;
-    const cy=(e.touches[0].clientY+e.touches[1].clientY)/2 - r.top;
-    const f=z/pinch.z0;
-    state.zoom=z;
-    applyZoom();
-    viewport.scrollLeft=(pinch.sx+pinch.c0x)*f - cx;
-    viewport.scrollTop =(pinch.sy+pinch.c0y)*f - cy;
+    if(pinch.done) return;
+    const k=dist(e.touches)/(pinch.d0||1);
+    if(k<0.8 && !state.fit){ pinch.done=true; setFit(true); }
+    else if(k>1.25 && state.fit){ pinch.done=true; setFit(false,pinch.cx); }
   }
 },{passive:false});
-viewport.addEventListener("touchend",()=>{ if(pinch){ pinch=null; save(); requestAnimationFrame(layTape); } });
+viewport.addEventListener("touchend",()=>{ pinch=null; });
+viewport.addEventListener("touchcancel",()=>{ pinch=null; });
 function dist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
 
 /* ============ toasts ============ */
@@ -1592,6 +1686,8 @@ if(sysDark && sysDark.addEventListener) sysDark.addEventListener("change",()=>{ 
 /* ============ menu ============ */
 const menuBtn=document.getElementById("menuBtn");
 const menuP=document.getElementById("menuP");
+document.getElementById("zoomBtn").addEventListener("click",()=>{ if(!editMode) setFit(!state.fit, viewport.clientWidth/2); });
+window.addEventListener("resize",()=>{ if(state){ applyFit(); requestAnimationFrame(layTape); } });
 menuBtn.addEventListener("click",()=>{ 
   document.getElementById("archTgl").classList.toggle("on",!!db.archOn);
   document.getElementById("randTgl").classList.toggle("on",!!db.randColor);
