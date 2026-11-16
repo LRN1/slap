@@ -471,6 +471,16 @@
     font:700 9.5px/1 -apple-system,system-ui;letter-spacing:.16em;transition:background .15s,color .15s,border-color .15s;}
   .clrdone.arm{background:#A82A1E;color:#F5EFE6;border-color:#A82A1E;}
   body.fit .clrdone{padding:0 8px;letter-spacing:.1em;}
+  /* i35: the column owns the screen - the scroll window runs to the bottom, the pile only
+     appears when stickies really do not fit (was a fixed 320px from the grid era) */
+  body:not(.edit-on) .swin{max-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 375px);
+    max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 375px);}
+  body:not(.edit-on) .cell.isdone .swin{max-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 435px);
+    max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 435px);}
+  /* i35: fit level uses the full width - thinner gutters, stickies fill their column */
+  body.fit #board{padding-left:6px;padding-right:6px;}
+  body.fit #headsIn{padding:0 6px;}
+  body.fit .colhead{margin:0 2px;}
   /* ===== i33: lanes as tabs + two snapped zoom levels ===== */
   .ltabs{position:sticky;left:0;width:100vw;display:flex;gap:2px;padding:0 6px;overflow-x:auto;scrollbar-width:none;
     pointer-events:auto;background:var(--bg);border-bottom:1px solid var(--hairL);}
@@ -489,8 +499,8 @@
     min-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 215px);}
   body.fit #board .card-el, body.fit #ghost .card-el{padding:9px 8px 11px;min-height:54px;}
   body.fit #board .card-el .t, body.fit #ghost .card-el .t{font-size:13.5px;line-height:1.22;}
-  body.fit .cell{padding:6px 3px 8px;gap:8px;}
-  body.fit .swin{padding:4px 3px 10px;gap:8px;}
+  body.fit .cell{margin:0 2px;padding:6px 2px 8px;gap:8px;}
+  body.fit .swin{padding:4px 2px 10px;gap:8px;}
   body.fit .colhead{padding:8px 2px 6px;gap:5px;}
   body.fit .colhead .cname{font-size:10px;letter-spacing:.12em;}
   body.fit #board .card-el.blocked::after{top:-7px;right:-5px;font-size:8px;padding:3px 6px;}
@@ -571,7 +581,7 @@ const COLORS = [   /* GALLERY: flat realistic paper */
 const COLW = 250;
 document.documentElement.style.setProperty("--colw", COLW+"px");
 const KEY = "board-v3";
-const BUILD = "i34 \u00b7 2026-11-16";
+const BUILD = "i35 \u00b7 2026-11-16";
 
 let db = null;      /* {v,current,doneFx,boards:[...]} */
 let state = null;   /* the ACTIVE board: {id,name,zoom,columns,lanes,cards} */
@@ -835,7 +845,7 @@ function renderNow(){
     }
     const row=document.createElement("div"); row.className="lane-row";
     for(const col of state.columns){
-      const cell=document.createElement("div"); cell.className="cell";
+      const cell=document.createElement("div"); cell.className="cell"+(DONE.has(col.id)?" isdone":"");
       cell.dataset.lane=lane.id; cell.dataset.col=col.id;
       const cards=state.cards.filter(c=>c.lane===lane.id&&c.col===col.id).sort((a,b)=>a.ord-b.ord);
       if(cards.length>5){
@@ -1475,7 +1485,7 @@ function colW(){
   if(!state || !state.fit || editMode) return COLW;
   const vw=viewport.clientWidth||0;
   if(!vw) return COLW; /* jsdom / pre-layout */
-  return Math.max(92, Math.floor((vw-24)/state.columns.length)-10);
+  return Math.max(92, Math.floor((vw-12)/state.columns.length)-4);
 }
 function applyFit(){
   const on=!!(state && state.fit) && !editMode;
